@@ -5,15 +5,17 @@ var test = {
         "song":"1",
         "num":12,
     },
+    "arr": [1],
 }
 
 //2. 若对象存在，是基础类型
 var JR_TYPE_MAYBE_SPACE = "UUID_6334923ED01011EC9D640242AC120002";
-var JR_TYPE_JS_PATH_GAP = "__UUID_73AFA8FBD99FCC39C2B767B61D05DEDF__";
+var JR_TYPE_JS_PATH_GAP = "";
 var JR_INNER_NAMES = {};
 JR_INNER_NAMES[JR_TYPE_MAYBE_SPACE] = 1;
-var JR_IS_STRING = /\"[^"]*\"/;
+var JR_IS_STRING = /\".*\"/;
 var JR_IS_NUMBER = /[0-9]+/;
+var JR_IS_ARRAY = /\[.*\]/;
 var JR_CALC_OR = function () {
     //非法检测
     var args = [];
@@ -55,8 +57,11 @@ var regexp = {
             "num": 1,
         },
     },
+    "arr": JR_IS_ARRAY,
     [JR_TYPE_MAYBE_SPACE]: {
         "str1": 1,
+        //修复易逝性数组匹配
+        "arr": 1,
     }
 };
 
@@ -71,12 +76,14 @@ var superStringify = function (obj, curPath) {
     else if(obj instanceof Object)  {
         ret += ":{";
         var index = 0;
-        for (var attr in obj) {
-            if(JR_INNER_NAMES[attr]) {
+        var keys = Object.keys(obj).sort();
+        for (var key_index in keys) {
+            var key = keys[key_index];
+            if(JR_INNER_NAMES[key]) {
                 continue;
             }
-            var attrName = attr;
-            var attrValue = obj[attr];
+            var attrName = key;
+            var attrValue = obj[key];
             var maybeSpace = false;
             if(obj[JR_TYPE_MAYBE_SPACE] && obj[JR_TYPE_MAYBE_SPACE][attrName]) {
                 maybeSpace = true;
@@ -101,11 +108,48 @@ var buildStrictRegExp = function (regexp) {
     var strictStr = "^"+noStrictStr+"$";
     return strictStr;
 }
-var a = buildStrictRegExp(regexp);
-a = a.slice(1,a.length-1);
+
+var standJsonObjSort = function (value) {
+    var newObj = undefined;
+    if(value instanceof Array) {
+        newObj = [];
+        for (const arr_index in value) {
+            var arr_value = value[arr_index];
+            newObj.push(standJsonObjSort(arr_value));
+        }
+    }
+    else if(value instanceof Object) {
+        newObj = {};
+        var keys = Object.keys(value).sort();
+
+        for (const key_index in keys) {
+            var key = keys[key_index];
+            var sub_value = value[key];
+            if(sub_value instanceof Object) {
+                newObj[key] = standJsonObjSort(sub_value);
+            }
+            else {
+                newObj[key] = sub_value;
+            }
+        }
+    }
+    else {
+        newObj = value;
+    }
+    return newObj;
+}
+
+var matchObj = function (jsonObj, objRegexp) {
+    var stdObj = standJsonObjSort(jsonObj);
+    console.log(JSON.stringify(stdObj));
+    var ret = JSON.stringify(stdObj).match(objRegexp);
+    console.log(ret);
+    return ret;
+}
 
 
-console.log(a);
-console.log(JSON.stringify(test));
+var objRegexp = buildStrictRegExp(regexp);
 
-console.log(JSON.stringify(test).match(a));
+console.log(objRegexp);
+
+matchObj(test, objRegexp);
